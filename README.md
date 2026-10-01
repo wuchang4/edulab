@@ -155,7 +155,7 @@ anim.js + engine.js ──node render.mjs video──► <name>.mp4             
 
 - Python 3 with `numpy requests pypinyin pillow`; Node.js 18+ with `playwright` + `ffmpeg-static` (installed once in the workspace — `scripts/new_video.sh` writes the `package.json`); Google Chrome or Playwright Chromium.
 - A Zhipu **`GLM_API_KEY`** provided by you, in `~/.config/math-problem-video/.env` (see `reference/glm-tts-setup.md`).
-- **No key?** It falls back automatically (`TTS_ENGINE=auto`): [edge-tts](https://github.com/rany2/edge-tts) if installed (free neural voices, needs internet), else macOS `say` (offline, robotic). Force one with `TTS_ENGINE=glm|edge|say`.
+- **No key?** It falls back automatically (`TTS_ENGINE=auto`): [edge-tts](https://github.com/rany2/edge-tts) if installed (free neural voices, needs internet), else macOS `say` (offline, robotic). Windows with an installed Chinese desktop voice uses offline system speech before Edge. Force one with `TTS_ENGINE=glm|windows|edge|say`.
 
 ### Run the pipeline by hand (without Claude)
 
@@ -167,6 +167,17 @@ python3 build_audio.py --check                                      # script + p
 python3 build_audio.py --preview && node render.mjs motion && node render.mjs stills auto
 python3 build_audio.py && node render.mjs video 6                   # real TTS, then render (6 = parallel pages)
 ```
+
+### Video teaching upgrade (0.2.0)
+
+- Optional `pause_after` gives students thinking time and retains the question in the video and SRT.
+- Optional `theorem` records conditions, reasons and a conclusion; `--check` emits a reviewable teaching report. This is a structural check, not mathematical verification.
+- Windows can use free offline Chinese desktop speech. PowerShell scaffolding and cross-platform environment checks are included.
+- Motion measurements stay in the browser; direct canvas capture and linear-time audio smoothing reduce rendering and mixing overhead.
+- The sample now checks theorem conditions and ends with a transfer exercise. Existing scripts keep their original timing.
+
+See [teaching guidance](skills/edu-math-video/reference/teaching-quality.md). Windows: use the full skill path, `SKILL/scripts/new_video.ps1 -Workspace $PWD -Name my_problem`, then `python SKILL/scripts/setup_check.py my_problem`. Keep the user workspace as the working directory.
+
 
 ## How it works
 
@@ -256,3 +267,9 @@ WY · [@akokoi1](https://x.com/akokoi1)
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=wy51ai/edulab&type=date&legend=top-left" />
  </picture>
 </a>
+
+## Development checks
+
+Use a Python environment containing `numpy requests pypinyin pillow`, then run `npm install`, `npx playwright install chromium` and `npm test`. On Windows ensure that environment's Python is first on PATH. Tests cover old timings, thinking pauses, theorem metadata, offline audition, FFmpeg discovery, native SAPI (Windows only) and real Canvas subtitle holds. Tests do not call online TTS or ASR.
+
+CI recipe: copy `ci/math-video-tests.yml` into `.github/workflows/` with an account that has workflow-write permission.

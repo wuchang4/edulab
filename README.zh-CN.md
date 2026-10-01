@@ -155,7 +155,7 @@ anim.js + engine.js ──node render.mjs video──► <name>.mp4             
 
 - Python 3 + `numpy requests pypinyin pillow`；Node.js 18+ + `playwright` + `ffmpeg-static`（在工作目录装一次，`scripts/new_video.sh` 会生成 `package.json`）；Google Chrome 或 Playwright Chromium。
 - 由你自己提供的智谱 **`GLM_API_KEY`**，写在 `~/.config/math-problem-video/.env`（见 `reference/glm-tts-setup.md`）。
-- **没有 key？** 自动兜底（`TTS_ENGINE=auto`）：装了 [edge-tts](https://github.com/rany2/edge-tts) 就用它（免费神经网络音色，需联网），否则用 macOS 自带的 `say`（离线，机械感明显）。也可用 `TTS_ENGINE=glm|edge|say` 指定。
+- **没有 key？** 自动兜底（`TTS_ENGINE=auto`）：装了 [edge-tts](https://github.com/rany2/edge-tts) 就用它（免费神经网络音色，需联网），否则用 macOS 自带的 `say`（离线，机械感明显）。Windows 已安装中文桌面语音时优先使用系统离线配音，再考虑 Edge。也可用 `TTS_ENGINE=glm|windows|edge|say` 指定。
 
 ### 手动跑流水线（不经过 Claude）
 
@@ -167,6 +167,17 @@ python3 build_audio.py --check                                      # 脚本 + �
 python3 build_audio.py --preview && node render.mjs motion && node render.mjs stills auto
 python3 build_audio.py && node render.mjs video 6                   # 真配音，然后渲染（6 = 并行页数）
 ```
+
+### 视频教学升级（0.2.0）
+
+- `pause_after` 为关键问题留思考时间，视频和 SRT 都保留问题字幕。
+- `theorem` 声明定理条件、依据和结论，`--check` 生成教学检查报告；它检查结构，不能代替数学验算。
+- Windows 支持免费系统离线中文配音，增加 PowerShell 建项目入口与跨平台环境检查。
+- 运动指标在浏览器内计算，直接导出 Canvas 帧；音频平滑改为线性算法，减少渲染与混音等待。
+- 示例增加定理条件核对和迁移题；不含新字段的旧脚本时序不变。
+
+详见 [教学质量指南](skills/edu-math-video/reference/teaching-quality.md)。Windows 使用完整技能路径运行 `SKILL/scripts/new_video.ps1 -Workspace $PWD -Name my_problem`，然后用 `python SKILL/scripts/setup_check.py my_problem` 检查环境；工作目录仍使用用户指定的目录。
+
 
 ## 工作原理
 
@@ -256,3 +267,9 @@ WY · [@akokoi1](https://x.com/akokoi1)
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=wy51ai/edulab&type=date&legend=top-left" />
  </picture>
 </a>
+
+## 开发检查
+
+使用已安装 `numpy requests pypinyin pillow` 的 Python 环境，运行 `npm install`、`npx playwright install chromium`、`npm test`。Windows 多个 Python 并存时，将该环境的 Python 放在 PATH 首位。测试包含旧时序、思考停顿、定理声明、离线试听、FFmpeg 发现、Windows 系统语音及真实 Canvas 字幕保留；不会调用在线配音或识别服务。
+
+CI 配置模板见 `ci/math-video-tests.yml`；拥有 workflow 写入权限的维护者可复制到 `.github/workflows/` 启用。

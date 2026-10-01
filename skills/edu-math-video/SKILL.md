@@ -22,7 +22,7 @@ anim.js + engine.js ◄───────────────────
 - `template/`：可直接运行的完整示例项目（直角三角形斜边中线题）。`engine.js` 是通用引擎（不改），`anim.js` / `script.json` / `episode.json` / `problem.png` 是每道题都要重写的。
 - `shared/pron.py` + `shared/pron.json`：读音控制（GLM-TTS 没有 SSML/拼音输入）。
 - `examples/cone-parallel/`：立体几何完整示例（anim.js + storyboard.md + script.json）：相机斜视↔俯视、侧面展开成扇形、内错角旋转、平面平移。做立体几何、圆、多问题时先读它。
-- `scripts/`：`new_video.sh`（建项目）、`setup_check.sh`（查环境）、`make_problem_png.py`（文字题→图片+高亮框）、`problem_boxes.py`（截图→高亮框坐标）、`contact_sheet.py`（截图拼图审查）。
+- `scripts/`：Windows 使用 `new_video.ps1` + `setup_check.py`；其他平台使用 `new_video.sh`（建项目）、`setup_check.sh`（查环境）、`make_problem_png.py`（文字题→图片+高亮框）、`problem_boxes.py`（截图→高亮框坐标）、`contact_sheet.py`（截图拼图审查）。
 
 下文 `SKILL` = 本文件所在目录，`WS` = **用户当前所在的目录（你的工作目录，`$PWD`）**：视频文件夹建在这里，mp4/srt 也输出到这里。**不要因为别的目录（包括本技能所在的项目）已经有 `.env`、`node_modules`、`pron.json` 就把 WS 换过去**，缺什么由 `new_video.sh` 和第 2 步补齐。`PROJ` = 本视频文件夹，`PY` = `setup_check.sh` 报告的 python（macOS 上一般是 `/usr/bin/python3`；PATH 里的 `python3` 可能没有 numpy）。
 
@@ -34,7 +34,7 @@ anim.js + engine.js ◄───────────────────
 2. **先讲清楚题目。** 视频第一幕必须展示原题图片（截图或 `make_problem_png.py` 生成的图），旁白逐条读条件，每读一条就在图上框出那一条。
 3. **`tts` 字段只能是能念出来的中文。** 不能有阿拉伯数字、`= + − × ÷ / ^ √ ∠ △ ∥ ° ( )` 等符号：`AC=3` 写成 `AC等于三`，`x²` 写成 `x的平方`。字幕 `zh` 字段保留正常数学写法。`--check` 会报错拦住。
 4. **读音必须固定。** 调 TTS 之前 `--check` 必须显示 `未固定读音的生僻字/多音字: 0` 且 `script errors: 0`。多音字的标注写在该字**后面**：`长[cháng]`、`要[yào]求`。**不能**写成 `中点[zhōng]`（那会把"点"读成 zhōng）。
-5. **API Key 只能由用户提供。** 缺 `GLM_API_KEY` 时先问用户：配置 key（音质最好，推荐），还是用兜底引擎（edge-tts / macOS `say`，见 [reference/glm-tts-setup.md](reference/glm-tts-setup.md#没有-glm-key-时兜底引擎)）。不要编造 key、模型名或接口地址，不要把 key 打印出来或写进项目文件夹。
+5. **API Key 只能由用户提供。** 缺 `GLM_API_KEY` 时先问用户：配置 key（音质最好，推荐），还是用兜底引擎（Windows 系统离线语音 / edge-tts / macOS `say`，见 [reference/glm-tts-setup.md](reference/glm-tts-setup.md#没有-glm-key-时兜底引擎)）。不要编造 key、模型名或接口地址，不要把 key 打印出来或写进项目文件夹。
 6. **所有画面内容在 y ≤ 860 以内**（y≈914~1044 是字幕框）。图形放左半边 x 60~900，推导文字写在右边的横线板 `board()` 上。
 7. **先写分镜，再写动画。** `storyboard.md` 给每句旁白规划"指/动/留"，按 [reference/visual-design.md](reference/visual-design.md) 的动作表选动作；`node render.mjs motion` 必须通过。
 8. **先预览再花钱。** 用 `--preview` + `stills auto` 检查版面，没问题再跑真正的 TTS。
@@ -54,6 +54,13 @@ anim.js + engine.js ◄───────────────────
 bash SKILL/scripts/new_video.sh "$PWD" <ascii_folder_name>     # WS 就是当前目录
 bash SKILL/scripts/setup_check.sh WS/<ascii_folder_name>
 ```
+Windows PowerShell（无需 Bash 或创建符号链接权限）：
+```powershell
+& SKILL/scripts/new_video.ps1 -Workspace $PWD -Name my_problem
+python SKILL/scripts/setup_check.py ./my_problem
+```
+`PY` = 通过检查的 Python。在 Windows 无 key 且已安装中文桌面语音时，`auto` 优先使用离线配音；明确选择 `TTS_ENGINE=windows` 可保证不调用在线 TTS。
+
 - `new_video.sh` 会把 `pron.py`/`pron.json` 链接到技能自带的共享词表，并在找得到时把 `node_modules` 链接到已有安装（不复制）；找不到才需要在 `WS` 下 `npm install`。python 包用 `PY -m pip install --user numpy requests pypinyin pillow`。
 - `new_video.sh` 报 `ERROR: ... is where the skill is installed` 说明你把 WS 设成了技能所在的项目，改用当前目录。
 - 默认音色是 `chuichui`（锤锤），用户可以在 `.env` 里用 `GLM_VOICE` 换。
@@ -79,6 +86,7 @@ cd PROJ && PY build_audio.py --say "你好，我们来看一道数学题。"
 按 [reference/script-writing.md](reference/script-writing.md) 写。要点：
 - `episode.json`：`title`（视频标题）、`output_name`（输出文件名，如 `斜边中线_Median_to_Hypotenuse`）、`pop_scenes`（要加"啵"音效的幕）。
 - `script.json`：幕的数组，每幕 `{"scene": "英文id", "lines": [{"zh","tts","en"}, ...]}`。第一幕 `intro` 读题，最后一幕 `outro` 回顾 + 报答案。
+- 按 [reference/teaching-quality.md](reference/teaching-quality.md) 核对教学顺序。提问句可加 `pause_after` 留出思考时间；使用定理的句子可声明 `theorem`，列出条件、依据和结论，检查结果在 `build/teaching_report.txt`。这个检查只验证结构，数学仍需验算，条件仍须画进动画。
 - 每句旁白 ≤ 36 个汉字宽（否则字幕折两行），一句只讲一件事。
 - **通过标准：** JSON 合法；每一幕的 id 都有计划好的画面。
 
@@ -157,6 +165,7 @@ cd PROJ && node render.mjs video 6      # 6 = 并行浏览器页数（不是帧�
 
 ## 参考文件
 - [reference/glm-tts-setup.md](reference/glm-tts-setup.md)：智谱 GLM-TTS 注册、API Key、`.env`、音色、语速、报错处理。**引导用户配置时读这个。**
+- [reference/teaching-quality.md](reference/teaching-quality.md)：条件检查、思考停顿、迁移练习与动画教学审阅。
 - [reference/script-writing.md](reference/script-writing.md)：`script.json` 格式、幕的设计、数学式子的口语写法对照表。
 - [reference/pronunciation.md](reference/pronunciation.md)：读音控制原理、标注语法、`pron.json`、数学常见多音字。
 - [reference/visual-design.md](reference/visual-design.md)：**讲解动画怎么设计**：指→动→留→连、推理→动画动作表、立体转俯视、圆锥展开、分镜格式。写分镜前必读。
