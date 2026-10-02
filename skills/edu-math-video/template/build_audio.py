@@ -29,7 +29,7 @@ import hashlib, json, math, os, re, shutil, struct, subprocess, sys, wave
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import requests
-from audio_math import box_mean
+from audio_math import box_mean, get_music_level
 from teaching import check_teaching
 import windows_tts
 
@@ -147,6 +147,7 @@ if VOICE is None:
     raise SystemExit(f"TTS_ENGINE={ENGINE!r}: use auto, glm, windows, edge or say")
 LETTER_SEP = "、" if ENGINE == "say" else " "  # see pron.to_tts
 EPISODE = json.load(open(os.path.join(ROOT, "episode.json"), encoding="utf-8"))
+MUSIC_LEVEL = get_music_level(EPISODE)
 OUT_NAME = EPISODE["output_name"]
 POP_SCENES = set(EPISODE.get("pop_scenes", []))  # scenes whose lines each get a soft "pop" SFX
 TRANSPOSE = 5  # D major, bright and bouncy
@@ -702,17 +703,19 @@ def main():
     pk = np.abs(voice).max()
     voice *= 0.8 / pk
 
-    music = make_music(total)
-    music *= 0.5 / (np.abs(music).max() + 1e-9)
-    # sidechain ducking from voice envelope
-    win = int(0.05 * SR)
-    env = box_mean(np.abs(voice), win)
-    active = (env > 0.01).astype(np.float32)
-    kk = int(0.35 * SR)
-    active = box_mean(active, kk)
-    active = np.clip(active * 1.5, 0, 1)
-    gain = 0.55 - 0.33 * active  # music ~ -5 dB idle, ~ -13 dB under speech
-    music *= gain
+    music = np.zeros(L, np.float32)
+    if MUSIC_LEVEL:
+        music = make_music(total)
+        music *= 0.5 / (np.abs(music).max() + 1e-9)
+        # sidechain ducking from voice envelope
+        win = int(0.05 * SR)
+        env = box_mean(np.abs(voice), win)
+        active = (env > 0.01).astype(np.float32)
+        kk = int(0.35 * SR)
+        active = box_mean(active, kk)
+        active = np.clip(active * 1.5, 0, 1)
+        gain = 0.55 - 0.33 * active  # music ~ -5 dB idle, ~ -13 dB under speech
+        music *= gain * MUSIC_LEVEL
 
     fx = np.zeros(L, np.float32)
     for kind, at in sfx:

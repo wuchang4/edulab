@@ -1,5 +1,15 @@
-"""Linear-time smoothing for narration sidechain envelopes."""
+"""Audio configuration and linear-time narration sidechain smoothing."""
+import math
 import numpy as np
+
+
+def get_music_level(episode):
+    """Return the optional background music multiplier, preserving legacy volume."""
+    level = episode.get("music_level", 1)
+    if (isinstance(level, bool) or not isinstance(level, (int, float))
+            or not 0 <= level <= 1 or not math.isfinite(level)):
+        raise ValueError("episode.music_level must be a finite number between 0 and 1")
+    return float(level)
 
 
 def box_mean(signal, window):

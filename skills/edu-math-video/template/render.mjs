@@ -14,15 +14,17 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import ffmpeg from 'ffmpeg-static';
 import { measureMotion } from './motion_measure.mjs';
+import { resolveMotionRegions } from './motion_regions.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const BUILD = path.join(ROOT, 'build');
+const CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'episode.json'), 'utf8'));
+const { figure: FIG, board: BOARD } = resolveMotionRegions(CONFIG);
 const TL = JSON.parse(fs.readFileSync(path.join(BUILD, 'timeline.json'), 'utf8'));
 fs.writeFileSync(path.join(BUILD, 'timeline.js'), 'window.TIMELINE=' + JSON.stringify(TL) + ';');
 const URL_ = pathToFileURL(path.join(ROOT, 'index.html')).href + '?render=1';
 const FPS = 30;
 const FFMPEG = process.env.FFMPEG_BINARY || ffmpeg;
-const CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'episode.json'), 'utf8'));
 const OUT = path.join(ROOT, '..', CONFIG.output_name + '.mp4');
 let ERRORS = 0;  // JS errors in anim.js/engine.js: a frame with an error is silently incomplete
 
@@ -76,7 +78,6 @@ try {
 if (mode === 'motion') {
   const page = await openPage(browser);
   await page.evaluate(() => { window.NO_BOIL = true; });  // freeze the hand-drawn wobble so only real changes count
-  const FIG = [0, 110, 925, 770], BOARD = [925, 110, 995, 770];  // x, y, w, h (everything above the subtitles)
   const exempt = new Set(CONFIG.static_ok || []);
   const first = TL.scenes[0].id, last = TL.scenes[TL.scenes.length - 1].id;
   const rows = [], problems = [];
