@@ -204,6 +204,12 @@ node render.mjs video 6
 模型差异、机制顺序与视觉因果审查清单见 [生物可视化规范](skills/edu-math-video/reference/biology-visuals.md)。模型是 Canvas 教学剖面示意，不是标本重建或互动课堂。
 
 
+### 本地生成提速（0.3.1）
+
+Windows 离线配音在一个语音引擎中连续生成多段音频，格式已匹配的 PCM 音频省去 FFmpeg 转换，重复旁白只合成一次。视频默认采用 x264 `fast`，沿用 1080p、30 fps 和 CRF 18；本地输入与成品的内容哈希均一致时，直接复用已完成的 MP4。
+
+一台 Windows 机器上的同一段 60 秒细胞课程，**首次配音加导出从 93 秒降到 71 秒**；内容未变的重复导出约 **0.74 秒**。实测不含编写讲稿的时间，不代表所有机器的耗时。`node render.mjs video 4 --fresh --preset medium` 可强制使用原压缩设置重新生成。缓存范围、实测条件与旧项目升级方法见 [性能说明](skills/edu-math-video/reference/performance.md)。
+
 ## 工作原理
 
 交互教学网页采用下面的计算核心与模板流程；视频采用上面的配音与 Canvas 流水线。

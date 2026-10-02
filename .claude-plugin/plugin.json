@@ -1,6 +1,6 @@
 {
   "name": "edulab",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "教育类技能集合：立体几何、解析几何与化学反应交互教学网页；edu-math-video 数学与生物机制讲解视频，支持可复用 Canvas 细胞模型、中文配音、中英字幕和 MP4 导出。",
   "author": {
     "name": "WY"

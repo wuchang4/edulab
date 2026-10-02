@@ -10,15 +10,19 @@ try {
             @{ name = $_.VoiceInfo.Name; culture = $_.VoiceInfo.Culture.Name }
         })
         ConvertTo-Json -InputObject $voices -Compress
-    } elseif ($job.mode -eq 'speak') {
+    } elseif ($job.mode -eq 'speak' -or $job.mode -eq 'batch') {
         $speaker.SelectVoice([string]$job.voice)
         $speaker.Rate = [int]$job.rate
         $speaker.Volume = 100
         $format = New-Object System.Speech.AudioFormat.SpeechAudioFormatInfo(
             48000, [System.Speech.AudioFormat.AudioBitsPerSample]::Sixteen,
             [System.Speech.AudioFormat.AudioChannel]::Mono)
-        $speaker.SetOutputToWaveFile([string]$job.output, $format)
-        $speaker.Speak([string]$job.text)
+        $clips = if ($job.mode -eq 'speak') { @($job) } else { @($job.clips) }
+        foreach ($clip in $clips) {
+            $speaker.SetOutputToWaveFile([string]$clip.output, $format)
+            try { $speaker.Speak([string]$clip.text) }
+            finally { $speaker.SetOutputToNull() }
+        }
     } else {
         throw 'Unknown Windows TTS job mode'
     }

@@ -204,6 +204,12 @@ node render.mjs video 6
 See the [biology visual standards](skills/edu-math-video/reference/biology-visuals.md) for model differences, mechanism order and the visual/cause-and-effect review checklist. The model is a Canvas teaching cutaway, not a reconstructed specimen or an interactive classroom.
 
 
+### Faster local generation (0.3.1)
+
+Windows offline narration now shares one speech engine across multiple clips and avoids FFmpeg when the clip already has the required PCM format. Identical narration is synthesized once. Video export defaults to x264 `fast` at the existing 1080p, 30 fps and CRF 18 settings, and reuses a completed MP4 when local inputs and the output file still match their content hashes.
+
+On one Windows machine, the same 60-second cell lesson took **93 → 71 seconds for cold narration plus export**; an unchanged repeat export took **0.74 seconds**. These measurements exclude writing the lesson and do not predict every machine's runtime. Use `node render.mjs video 4 --fresh --preset medium` to force a rebuild with the previous compression preset. See [performance details and cache limits](skills/edu-math-video/reference/performance.md), including how to update an existing lesson project.
+
 ## How it works
 
 The interactive web lesson skills use the kernel/template workflow below. Videos use the narration and Canvas pipeline above.

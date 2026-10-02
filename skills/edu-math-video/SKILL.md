@@ -144,6 +144,7 @@ cd PROJ && PY build_audio.py --preview && node render.mjs motion && node render.
 cd PROJ && PY build_audio.py && node render.mjs motion && node render.mjs stills auto && PY SKILL/scripts/contact_sheet.py .
 ```
 - TTS 按文本缓存在 `build/tts/`，改了某句只会重新合成那一句。
+- Windows 离线配音对待生成片段去重，并在每个批次中共用语音引擎；已匹配的 48 kHz 单声道 16-bit PCM 直接保存，不改变语音采样。
 - 可选 `PY build_audio.py --asr` 会把配音发送到智谱识别服务，需有发送该内容的授权；选择离线流程时跳过，不因 key 存在就自动外传。已授权的检查结果写入 `build/asr_report.txt`；字母序列不匹配标 ✗，退出码 1，修正读音后再核对。没有运行识别时不得声称通过机器听写。
 - 真实时长与预览不同，重新看一遍 sheet。
 - **通过标准：** 打印 `mix + srt written`；真实时间轴的运动和截图检查通过；说明是否做过听写以及实际验证范围。提供试听，含字母点名和固定读音的词要重点核对。
@@ -153,6 +154,7 @@ cd PROJ && PY build_audio.py && node render.mjs motion && node render.mjs stills
 cd PROJ && node render.mjs video 6      # 6 = 并行浏览器页数（不是帧率！帧率固定 30）
 ```
 - 输出 `WS/<output_name>.mp4` 和 `WS/<output_name>.srt`（WS = 用户的当前目录）。2~3 分钟的视频约需几分钟。
+- 默认 x264 `fast`，保持 1080p、30 fps、CRF 18。完整导出成功后保存缓存；后续输入与成品哈希一致时打印 `CACHE HIT` 并复用 MP4。缓存不替代脚本、动作和画面检查。外部/动态资源或需要强制重新生成时用 `node render.mjs video 6 --fresh`；`--preset medium` 可选择原压缩设置。边界与旧项目升级见 [reference/performance.md](reference/performance.md)。
 - 交付时告诉用户：mp4/srt 路径、实际时长、各幕内容和实际验证范围。提供可播放的成品；未核对的音频读音不要宣称已验证。用户反馈读错时：加到 `pron.json` 或行内标注 → 再跑第 10、11 步（只会重合成改过的句子）。
 
 ## 常见错误（真实发生过）
@@ -179,6 +181,7 @@ cd PROJ && node render.mjs video 6      # 6 = 并行浏览器页数（不是帧�
 | 一句旁白塞三四个知识点 | 一句一个点，画面同步出现一个元素 |
 
 ## 参考文件
+- [reference/performance.md](reference/performance.md)：配音与视频提速、缓存范围、强制重建、实测条件与旧项目升级。
 - [reference/glm-tts-setup.md](reference/glm-tts-setup.md)：智谱 GLM-TTS 注册、API Key、`.env`、音色、语速、报错处理。**引导用户配置时读这个。**
 - [reference/teaching-quality.md](reference/teaching-quality.md)：条件检查、思考停顿、迁移练习与动画教学审阅。
 - [reference/biology-visuals.md](reference/biology-visuals.md)：细胞模型差异、连续镜头、自噬顺序、示意与证据边界、视觉因果审查。做生物机制课时必读。

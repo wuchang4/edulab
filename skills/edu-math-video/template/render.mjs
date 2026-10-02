@@ -7,6 +7,7 @@
 //                                             never has sustained motion (see reference/visual-design.md)
 //   node render.mjs video [workers]        -> ../<output_name>.mp4   (workers = parallel browser pages, NOT fps;
 //                                             fps is fixed at 30. 4-8 is sensible.)
+//   node render.mjs video 4 --fresh --preset medium  -> force a rebuild with legacy compression
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -15,17 +16,37 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import ffmpeg from 'ffmpeg-static';
 import { measureMotion } from './motion_measure.mjs';
 import { resolveMotionRegions } from './motion_regions.mjs';
+import { videoOptions } from './render_options.mjs';
+import { inputKey, cacheHit, saveCache } from './render_cache.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const BUILD = path.join(ROOT, 'build');
 const CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'episode.json'), 'utf8'));
 const { figure: FIG, board: BOARD } = resolveMotionRegions(CONFIG);
+const mode = process.argv[2] || 'stills';
+if (!['stills','motion','video'].includes(mode)) throw new Error('Unknown rendering mode: '+mode);
+const OPTIONS = mode === 'video' ? videoOptions(process.argv.slice(3)) : null;
 const TL = JSON.parse(fs.readFileSync(path.join(BUILD, 'timeline.json'), 'utf8'));
 fs.writeFileSync(path.join(BUILD, 'timeline.js'), 'window.TIMELINE=' + JSON.stringify(TL) + ';');
 const URL_ = pathToFileURL(path.join(ROOT, 'index.html')).href + '?render=1';
 const FPS = 30;
 const FFMPEG = process.env.FFMPEG_BINARY || ffmpeg;
 const OUT = path.join(ROOT, '..', CONFIG.output_name + '.mp4');
+if (mode === 'video' && TL.preview_only) throw new Error('Preview-only timeline: generate real audio before exporting video.');
+const CACHE = path.join(BUILD,'render-cache.json');
+const CACHE_SETTINGS = mode === 'video' ? {
+  workers:OPTIONS.workers,preset:OPTIONS.preset,fps:FPS,crf:18,jpeg:.93,width:1920,height:1080,
+  ffmpeg:FFMPEG,ffmpegSize:fs.statSync(FFMPEG).size,ffmpegModified:fs.statSync(FFMPEG).mtimeMs
+} : null;
+let KEY = null;
+if (OPTIONS) {
+  try { KEY = inputKey(ROOT,CACHE_SETTINGS,OUT); }
+  catch (error) { console.warn('Render cache disabled: input scan failed:',error.message); }
+}
+if (OPTIONS && KEY !== null && !OPTIONS.fresh && cacheHit(CACHE,KEY,OUT)) {
+  console.log('CACHE HIT: unchanged local inputs; reused verified output',OUT);
+  process.exit(0);
+}
 let ERRORS = 0;  // JS errors in anim.js/engine.js: a frame with an error is silently incomplete
 
 async function openPage(browser) {
@@ -51,7 +72,7 @@ function run(args) {
 async function renderChunk(browser, f0, f1, file, id) {
   const page = await openPage(browser);
   const ff = spawn(FFMPEG, ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
-    '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-r', String(FPS), file], { stdio: ['pipe', 'inherit', 'inherit'] });
+    '-c:v', 'libx264', '-preset', OPTIONS.preset, '-crf', '18', '-pix_fmt', 'yuv420p', '-r', String(FPS), file], { stdio: ['pipe', 'inherit', 'inherit'] });
   const done = new Promise((res, rej) => ff.on('close', c => (c === 0 ? res() : rej(new Error('ffmpeg chunk ' + c)))));
   const t0 = Date.now();
   for (let f = f0; f < f1; f++) {
@@ -65,8 +86,6 @@ async function renderChunk(browser, f0, f1, file, id) {
   await page.close();
 }
 
-const mode = process.argv[2] || 'stills';
-if (mode === 'video' && TL.preview_only) throw new Error('Preview-only timeline: generate real audio before exporting video.');
 // file access flags: lets `motion` read pixels of a canvas that has problem.png drawn on it (file:// taints it otherwise)
 const ARGS = ['--font-render-hinting=none', '--allow-file-access-from-files', '--disable-web-security'];
 let browser;
@@ -121,7 +140,8 @@ if (mode === 'motion') {
     console.log(f);
   }
 } else {
-  const workers = Number(process.argv[3] || 6);
+  const workers = OPTIONS.workers;
+  console.log(`Video: ${workers} workers, ${OPTIONS.preset} preset, 1080p30, CRF18`);
   const total = Math.ceil(TL.duration * FPS);
   const per = Math.ceil(total / workers);
   const chunks = [];
@@ -140,6 +160,12 @@ if (mode === 'motion') {
     '-metadata', 'title=' + CONFIG.title, OUT]);
   for (const c of chunks) fs.rmSync(c.file, { force: true });  // intermediate chunks are no longer needed
   fs.rmSync(list, { force: true });
+  if (!ERRORS && KEY !== null) {
+    try {
+      if (inputKey(ROOT,CACHE_SETTINGS,OUT) === KEY) saveCache(CACHE,KEY,OUT);
+      else console.warn('Render inputs changed during export; output was not cached. Rebuild before delivery.');
+    } catch (error) { console.warn('Video exported, but its cache could not be saved:',error.message); }
+  }
   console.log('WROTE', OUT);
 }
 await browser.close();

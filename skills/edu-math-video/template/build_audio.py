@@ -30,6 +30,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import requests
 from audio_math import box_mean, get_music_level
+from audio_io import to_pcm_wav
 from teaching import check_teaching
 import windows_tts
 
@@ -171,9 +172,20 @@ def strip_wav(raw: bytes) -> bytes:
 
 def _to_wav(src, out):
     """Any audio file -> 48 kHz mono wav without metadata."""
-    subprocess.run([FF, "-y", "-loglevel", "error", "-i", src, "-map_metadata", "-1",
-                    "-fflags", "+bitexact", "-ar", str(SR), "-ac", "1", out], check=True)
-    os.remove(src)
+    to_pcm_wav(src, out, FF, SR)
+
+
+def tts_windows_batch(jobs):
+    raw = [(text, out + ".raw.wav") for text, out in jobs]
+    try:
+        windows_tts.synthesize_many(raw, VOICE.split(":", 1)[1], SPEED,
+                                    timeout=TTS_TIMEOUT * len(raw))
+        for (_, source), (_, output) in zip(raw, jobs):
+            _to_wav(source, output)
+    finally:
+        for _, source in raw:
+            if os.path.exists(source):
+                os.remove(source)
 
 
 def tts_edge(text, out):
@@ -657,8 +669,16 @@ def main():
         if unpinned:
             raise SystemExit("Resolve the pronunciation report before TTS (see build/pron_report.txt).")
         need_key()
+        unique = list({output: text for text, output in jobs}.items())
+        pending = [(text, output) for output, text in unique if not os.path.exists(output)]
         with ThreadPoolExecutor(4) as ex:
-            list(ex.map(lambda j: tts(*j), jobs))
+            if ENGINE == "windows" and pending:
+                size = min(16, max(1, (len(pending) + 3) // 4))
+                groups = [pending[i:i + size] for i in range(0, len(pending), size)]
+                list(ex.map(tts_windows_batch, groups))
+            else:
+                list(ex.map(lambda j: tts(*j), pending))
+        print("TTS cache:", len(unique) - len(pending), "/", len(unique), "unique clips reused")
         print("TTS done:", len(jobs), "clips  voice:", VOICE)
 
     t = 0.0

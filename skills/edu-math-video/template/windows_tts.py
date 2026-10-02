@@ -49,3 +49,14 @@ def synthesize(text, output, voice, speed, timeout=120):
         raise ValueError("speech speed must be positive and finite")
     _run_job({"mode": "speak", "text": text, "output": str(Path(output).resolve()), "voice": voice,
               "rate": max(-10, min(10, round(10 * math.log2(speed))))}, timeout=timeout)
+
+
+def synthesize_many(clips, voice, speed, timeout=120):
+    """Write separate clips while loading the local speech engine only once."""
+    if not math.isfinite(speed) or speed <= 0:
+        raise ValueError("speech speed must be positive and finite")
+    clips = [{"text": text, "output": str(Path(output).resolve())} for text, output in clips]
+    if not clips:
+        return
+    _run_job({"mode": "batch", "clips": clips, "voice": voice,
+              "rate": max(-10, min(10, round(10 * math.log2(speed))))}, timeout=timeout)

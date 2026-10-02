@@ -1,6 +1,6 @@
 {
   "name": "@wy51ai/edulab",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Education skills for interactive lesson pages and narrated videos: solid geometry, analytic geometry, chemistry reaction demonstrations, and edu-math-video for math explanations and biology mechanisms with reusable Canvas cell models, Chinese narration, bilingual subtitles and MP4 export.",
   "keywords": [
     "claude-code",
